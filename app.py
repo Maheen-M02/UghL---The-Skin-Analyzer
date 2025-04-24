@@ -34,7 +34,7 @@ download_model("https://www.dropbox.com/scl/fi/yve6s2wjcrwu1d5q14byr/unet_skin_s
 # --- Load models ---
 print("📦 Loading models...")
 yolo_model = YOLO("models/yolov8_trained_skinai4.pt")
-unet_model = smp.Unet(encoder_name="resnet34", encoder_weights=None, in_channels=3, classes=6)
+unet_model = smp.Unet(encoder_name="resnet34", encoder_weights=None, in_channels=3, classes=1)
 unet_model.load_state_dict(torch.load("models/unet_skin_segmentation.pth", map_location="cpu"))
 unet_model.eval()
 
