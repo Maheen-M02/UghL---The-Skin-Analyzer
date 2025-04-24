@@ -1,59 +1,167 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Skin Analyzer - Upload or Capture</title>
-  <style>
-    body { font-family: Arial, sans-serif; padding: 2rem; background-color: #f5f7fa; }
-    h1 { color: #333; }
-    form, #cameraSection { margin-top: 2rem; }
-    video, canvas { display: block; margin-top: 1rem; }
-    button { padding: 10px 20px; margin-top: 10px; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skin Analyzer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f8ff;
+            margin: 0;
+            padding: 0;
+        }
+        header {
+            background-color: #4CAF50;
+            color: white;
+            padding: 15px 0;
+            text-align: center;
+        }
+        .container {
+            max-width: 800px;
+            margin: 50px auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        .upload-form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        video {
+            width: 100%;
+            height: auto;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+        #camera-container {
+            display: none;
+        }
+        input[type="file"] {
+            margin-bottom: 20px;
+        }
+    </style>
 </head>
 <body>
 
-  <h1>🧴 Skin Condition Analyzer</h1>
-  <p>Upload an image or use your webcam to analyze your skin condition.</p>
+    <header>
+        <h1>Skin Condition Analyzer</h1>
+    </header>
 
-  <!-- Image Upload Form -->
-  <form method="POST" action="/predict" enctype="multipart/form-data">
-    <input type="file" name="file" accept="image/*" required>
-    <button type="submit">Upload Image</button>
-  </form>
+    <div class="container">
+        <h2>Upload Your Skin Image</h2>
+        
+        <!-- File Upload Section -->
+        <form action="/predict" method="POST" enctype="multipart/form-data" class="upload-form">
+            <input type="file" name="file" accept="image/*" required>
+            <button type="submit">Analyze Skin Condition</button>
+        </form>
+        
+        <h2>Or Capture Your Skin Image Using Camera</h2>
+        <button id="open-camera-btn">Open Camera</button>
+        <div id="camera-container">
+            <video id="video" autoplay></video>
+            <br>
+            <button id="capture-btn">Capture Image</button>
+            <canvas id="canvas" style="display: none;"></canvas>
+            <br>
+            <input type="file" id="captured-image" name="file" style="display: none;" />
+            <button id="upload-btn" style="display: none;" onclick="uploadAndRedirect()">Upload & Analyze</button>
+        </div>
+    </div>
 
-  <!-- Camera Capture Section -->
-  <div id="cameraSection">
-    <h2>📷 Capture from Camera</h2>
-    <video id="video" width="320" height="240" autoplay></video>
-    <canvas id="canvas" width="320" height="240" style="display:none;"></canvas>
-    <button onclick="captureImage()">Capture</button>
-    <form id="cameraForm" method="POST" action="/predict" enctype="multipart/form-data">
-      <input type="hidden" name="from_camera" value="true">
-      <input type="file" id="capturedImage" name="file" style="display: none;">
-      <button type="submit">Submit Captured Image</button>
-    </form>
-  </div>
+    <script>
+        const openCameraBtn = document.getElementById('open-camera-btn');
+        const cameraContainer = document.getElementById('camera-container');
+        const videoElement = document.getElementById('video');
+        const captureBtn = document.getElementById('capture-btn');
+        const canvas = document.getElementById('canvas');
+        const capturedImageInput = document.getElementById('captured-image');
+        const uploadBtn = document.getElementById('upload-btn');
 
-  <script>
-    const video = document.getElementById('video');
-    const canvas = document.getElementById('canvas');
-    const capturedImage = document.getElementById('capturedImage');
+        openCameraBtn.addEventListener('click', () => {
+            cameraContainer.style.display = 'block';
+            openCamera();
+        });
 
-    navigator.mediaDevices.getUserMedia({ video: true })
-      .then(stream => { video.srcObject = stream; });
+        async function openCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                videoElement.srcObject = stream;
+            } catch (err) {
+                console.error("Error accessing camera: ", err);
+            }
+        }
 
-    function captureImage() {
-      const context = canvas.getContext('2d');
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      canvas.toBlob(blob => {
-        const file = new File([blob], "capture.jpg", { type: "image/jpeg" });
-        const dataTransfer = new DataTransfer();
-        dataTransfer.items.add(file);
-        capturedImage.files = dataTransfer.files;
-      }, "image/jpeg");
-    }
-  </script>
+        captureBtn.addEventListener('click', () => {
+            captureImage();
+        });
+
+        function captureImage() {
+            const ctx = canvas.getContext('2d');
+            // Set canvas size to match video size
+            canvas.width = videoElement.videoWidth;
+            canvas.height = videoElement.videoHeight;
+            ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+            const dataUrl = canvas.toDataURL('image/jpeg');
+            
+            // Convert captured image to file input
+            const capturedImage = dataURLtoFile(dataUrl, 'captured-image.jpg');
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(capturedImage);
+            capturedImageInput.files = dataTransfer.files;
+
+            // Show upload button
+            uploadBtn.style.display = 'inline-block';
+        }
+
+        function dataURLtoFile(dataUrl, filename) {
+            const arr = dataUrl.split(','), mime = arr[0].match(/:(.*?);/)[1],
+            bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
+            while(n--) u8arr[n] = bstr.charCodeAt(n);
+            return new File([u8arr], filename, { type: mime });
+        }
+
+        // Redirect to result page after upload
+        function uploadAndRedirect() {
+            // Simulate form submission by uploading the captured image
+            const form = new FormData();
+            form.append("file", capturedImageInput.files[0]);
+
+            // Make an AJAX request to submit the form
+            fetch('/predict', {
+                method: 'POST',
+                body: form
+            })
+            .then(response => response.json()) // Assuming the server returns JSON with the results
+            .then(data => {
+                if (data.success) {
+                    // Redirect to result page with the results
+                    window.location.href = '/result'; // Modify this URL based on your result page
+                } else {
+                    alert("Error analyzing image");
+                }
+            })
+            .catch(error => console.error('Error:', error));
+        }
+    </script>
 
 </body>
 </html>
