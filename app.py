@@ -1,89 +1,85 @@
-# app.py
-from flask import Flask, request, render_template, jsonify
+import os
+import requests
 import torch
-from ultralytics import YOLO
 import pandas as pd
 import cv2
-import os
-from PIL import Image
-import numpy as np
+from flask import Flask, render_template, request, jsonify
 from werkzeug.utils import secure_filename
+from ultralytics import YOLO
 import segmentation_models_pytorch as smp
-import albumentations as A
-from albumentations.pytorch import ToTensorV2
+import numpy as np
 
 app = Flask(__name__)
-UPLOAD_FOLDER = "static/uploads"
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config["UPLOAD_FOLDER"] = "static/uploads"
+os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+os.makedirs("models", exist_ok=True)
 
-# Load YOLO model
-yolo_model = YOLO("C:/Users/Maheen/Desktop/Skin_project/yolov8_trained_skinai4.pt")
+# Google Drive download helper
+def download_from_gdrive(file_id, destination):
+    if not os.path.exists(destination):
+        print(f"📥 Downloading model to {destination}...")
+        url = f"https://drive.google.com/uc?id={file_id}"
+        response = requests.get(url, stream=True)
+        with open(destination, "wb") as f:
+            for chunk in response.iter_content(1024):
+                if chunk:
+                    f.write(chunk)
+        print("✅ Download complete.")
+    else:
+        print("✅ Model already exists.")
 
-# Load U-Net model
-unet_model = smp.Unet(encoder_name="resnet34", encoder_weights="imagenet", in_channels=3, classes=6)
-unet_model.load_state_dict(torch.load("C:/Users/Maheen/Desktop/Skin_project/unet_skin_segmentation.pth", map_location=torch.device('cpu')))
+# --- Download models from Google Drive ---
+download_from_gdrive("11IJK4q9uoYiVp3Qih3sd50zbcNrar-aG", "models/yolov8_trained_skinai4.pt")
+download_from_gdrive("17B1UImPdXQkeD2-1-Ogxv4ZUgooVTUtj", "models/unet_skin_segmentation.pth")
+
+# --- Load models ---
+print("📦 Loading models...")
+yolo_model = YOLO("models/yolov8_trained_skinai4.pt")
+unet_model = smp.Unet(encoder_name="resnet34", encoder_weights=None, in_channels=3, classes=6)
+unet_model.load_state_dict(torch.load("models/unet_skin_segmentation.pth", map_location="cpu"))
 unet_model.eval()
 
-# Load product data
-df = pd.read_csv("C:/Users/Maheen/Desktop/Skin_project/indian_skincare_products_300_updated.csv")
+# --- Load product recommendation data ---
+df = pd.read_csv("indian_skincare_products_300.csv")
+SKIN_CLASSES = ["acne", "redness", "dry", "oily", "dark circles", "wrinkles"]
 
-SKIN_CONCERNS = ["acne", "wrinkles", "dark circles", "redness", "dry", "oily"]
-
-def recommend_products(condition):
-    filtered = df[df['concern'].str.contains(condition, case=False, na=False)]
-    return filtered[['product_name', 'price', 'url']].head(5).to_dict(orient='records')
-
-@app.route('/')
+@app.route("/")
 def index():
-    return render_template("C:/Users/Maheen/Desktop/flask_on_render/templates/index.html")
+    return render_template("index.html")
 
-@app.route('/predict', methods=['POST'])
+@app.route("/predict", methods=["POST"])
 def predict():
-    if 'file' not in request.files:
+    if "file" not in request.files:
         return jsonify({"error": "No file uploaded"})
 
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({"error": "No file selected"})
+    file = request.files["file"]
+    if file.filename == "":
+        return jsonify({"error": "No selected file"})
 
     filename = secure_filename(file.filename)
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    file.save(filepath)
+    file_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+    file.save(file_path)
 
-    image = Image.open(filepath).convert('RGB')
-    image_np = np.array(image)
+    # --- YOLO Detection ---
+    yolo_results = yolo_model(file_path)
+    detected_conditions = []
+    for result in yolo_results:
+        for box in result.boxes:
+            class_id = int(box.cls[0].item())
+            if class_id < len(SKIN_CLASSES):
+                detected_conditions.append(SKIN_CLASSES[class_id])
+    most_common = max(set(detected_conditions), key=detected_conditions.count) if detected_conditions else "None"
 
-    # YOLO detection
-    yolo_results = yolo_model(image_np)
-    detected_classes = set()
-    for r in yolo_results:
-        for box in r.boxes:
-            cls_id = int(box.cls[0].item())
-            if cls_id < len(SKIN_CONCERNS):
-                detected_classes.add(SKIN_CONCERNS[cls_id])
-
-    # U-Net segmentation
-    transform = A.Compose([
-        A.Resize(640, 640),
-        A.Normalize(),
-        ToTensorV2()
-    ])
-    transformed = transform(image=image_np)
-    input_tensor = transformed['image'].unsqueeze(0)
-    with torch.no_grad():
-        output = unet_model(input_tensor)[0].detach().numpy()
-
-    # Combine detections
-    all_conditions = list(detected_classes)
-    all_recommendations = {}
-    for cond in all_conditions:
-        all_recommendations[cond] = recommend_products(cond)
+    # --- Product Recommendation ---
+    recommended = df[df["concern"].str.contains(most_common, case=False, na=False)]
+    products = recommended[["product_name", "price", "url"]].head(5).to_dict(orient="records")
 
     return jsonify({
-        "conditions": all_conditions,
-        "recommendations": all_recommendations,
-        "image_path": filepath
+        "condition": most_common,
+        "products": products,
+        "image_path": file_path
     })
 
-if __name__ == '__main__':
-    app.run(debug=True)
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
