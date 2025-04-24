@@ -1,8 +1,0 @@
-Flask
-torch
-opencv-python
-pandas
-numpy
-ultralytics
-segmentation-models-pytorch
-albumentations
