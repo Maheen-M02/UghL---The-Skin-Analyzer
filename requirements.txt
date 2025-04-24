@@ -1,6 +1,7 @@
 Flask
 torch
-opencv-python
+pip install opencv-python-headless
+
 pandas
 numpy
 ultralytics
