@@ -1,92 +1,59 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Hybrid Skin Analyzer</title>
+  <meta charset="UTF-8">
+  <title>Skin Analyzer - Upload or Capture</title>
   <style>
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      background: linear-gradient(to right, #f0f2f5, #d4fc79);
-      margin: 0;
-      padding: 0;
-    }
-
-    header {
-      background-color: #1d3557;
-      color: white;
-      padding: 20px 0;
-      text-align: center;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-    }
-
-    h1 {
-      margin: 0;
-      font-size: 2.5rem;
-    }
-
-    .container {
-      max-width: 600px;
-      margin: 40px auto;
-      background: white;
-      padding: 30px;
-      border-radius: 15px;
-      box-shadow: 0 10px 20px rgba(0,0,0,0.1);
-    }
-
-    .form-group {
-      margin-bottom: 20px;
-    }
-
-    input[type="file"] {
-      width: 100%;
-      padding: 10px;
-      border-radius: 10px;
-      border: 1px solid #ccc;
-    }
-
-    button {
-      background-color: #1d3557;
-      color: white;
-      border: none;
-      padding: 12px 20px;
-      font-size: 16px;
-      border-radius: 8px;
-      cursor: pointer;
-    }
-
-    button:hover {
-      background-color: #457b9d;
-    }
-
-    footer {
-      text-align: center;
-      padding: 15px;
-      font-size: 14px;
-      background-color: #f8f8f8;
-      color: #555;
-    }
+    body { font-family: Arial, sans-serif; padding: 2rem; background-color: #f5f7fa; }
+    h1 { color: #333; }
+    form, #cameraSection { margin-top: 2rem; }
+    video, canvas { display: block; margin-top: 1rem; }
+    button { padding: 10px 20px; margin-top: 10px; }
   </style>
 </head>
 <body>
-  <header>
-    <h1>Hybrid Skin Analyzer</h1>
-    <p>YOLOv8 + U-Net Based Skin Detection & Product Recommendation</p>
-  </header>
 
-  <div class="container">
-    <form action="/predict" method="POST" enctype="multipart/form-data">
-      <div class="form-group">
-        <label for="file"><strong>Capture or Upload a Facial Image:</strong></label>
-        <input type="file" name="file" id="file" accept="image/*" capture="environment" required />
-        <small style="color: #888;">Use your camera or upload an existing photo</small>
-      </div>
-      <button type="submit">Analyze Now</button>
+  <h1>🧴 Skin Condition Analyzer</h1>
+  <p>Upload an image or use your webcam to analyze your skin condition.</p>
+
+  <!-- Image Upload Form -->
+  <form method="POST" action="/predict" enctype="multipart/form-data">
+    <input type="file" name="file" accept="image/*" required>
+    <button type="submit">Upload Image</button>
+  </form>
+
+  <!-- Camera Capture Section -->
+  <div id="cameraSection">
+    <h2>📷 Capture from Camera</h2>
+    <video id="video" width="320" height="240" autoplay></video>
+    <canvas id="canvas" width="320" height="240" style="display:none;"></canvas>
+    <button onclick="captureImage()">Capture</button>
+    <form id="cameraForm" method="POST" action="/predict" enctype="multipart/form-data">
+      <input type="hidden" name="from_camera" value="true">
+      <input type="file" id="capturedImage" name="file" style="display: none;">
+      <button type="submit">Submit Captured Image</button>
     </form>
   </div>
 
-  <footer>
-    &copy; 2025 SkinAI Lab | Built with ❤️ using YOLOv8 and U-Net
-  </footer>
+  <script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const capturedImage = document.getElementById('capturedImage');
+
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then(stream => { video.srcObject = stream; });
+
+    function captureImage() {
+      const context = canvas.getContext('2d');
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(blob => {
+        const file = new File([blob], "capture.jpg", { type: "image/jpeg" });
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(file);
+        capturedImage.files = dataTransfer.files;
+      }, "image/jpeg");
+    }
+  </script>
+
 </body>
 </html>
