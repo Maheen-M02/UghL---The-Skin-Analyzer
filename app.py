@@ -14,23 +14,22 @@ app.config["UPLOAD_FOLDER"] = "static/uploads"
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 os.makedirs("models", exist_ok=True)
 
-# Google Drive download helper
-def download_from_gdrive(file_id, destination):
+# Dropbox download helper
+def download_model(url, destination):
     if not os.path.exists(destination):
         print(f"📥 Downloading model to {destination}...")
-        url = f"https://drive.google.com/uc?id={file_id}"
-        response = requests.get(url, stream=True)
-        with open(destination, "wb") as f:
-            for chunk in response.iter_content(1024):
+        r = requests.get(url, stream=True)
+        with open(destination, 'wb') as f:
+            for chunk in r.iter_content(chunk_size=8192):
                 if chunk:
                     f.write(chunk)
         print("✅ Download complete.")
     else:
         print("✅ Model already exists.")
 
-# --- Download models from Google Drive ---
-download_from_gdrive("11IJK4q9uoYiVp3Qih3sd50zbcNrar-aG", "models/yolov8_trained_skinai4.pt")
-download_from_gdrive("17B1UImPdXQkeD2-1-Ogxv4ZUgooVTUtj", "models/unet_skin_segmentation.pth")
+# --- Download models from Dropbox ---
+download_model("https://www.dropbox.com/scl/fi/047moeju1vga7otmzvjdm/yolov8_trained_skinai4.pt?rlkey=zdtptu9v8pudho6djgcbkzkbp&st=pg768mh1&raw=1", "models/yolov8_trained_skinai4.pt")
+download_model("https://www.dropbox.com/scl/fi/yve6s2wjcrwu1d5q14byr/unet_skin_segmentation.pth?rlkey=rb0f7yizzn0qmooj17uqxi5rk&st=rr08yblk&raw=1", "models/unet_skin_segmentation.pth")
 
 # --- Load models ---
 print("📦 Loading models...")
