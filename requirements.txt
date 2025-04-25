@@ -6,3 +6,4 @@ torch==2.0.0
 pandas==2.0.1
 requests==2.28.1
 qrcode[pil]==7.3.1
+python-3.9.6
