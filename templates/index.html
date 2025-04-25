@@ -1,167 +1,216 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Skin Analyzer</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f0f8ff;
-            margin: 0;
-            padding: 0;
-        }
-        header {
-            background-color: #4CAF50;
-            color: white;
-            padding: 15px 0;
-            text-align: center;
-        }
-        .container {
-            max-width: 800px;
-            margin: 50px auto;
-            background-color: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        }
-        h1 {
-            color: #333;
-        }
-        .upload-form {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        button {
-            padding: 10px 20px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #45a049;
-        }
-        video {
-            width: 100%;
-            height: auto;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            margin-bottom: 10px;
-        }
-        #camera-container {
-            display: none;
-        }
-        input[type="file"] {
-            margin-bottom: 20px;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Skin Analyzer</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: url('https://www.dropbox.com/scl/fi/ouvyt8mnysajttw3y4ut8/img.jpg?rlkey=tffr8letx5n7jw202to5gspqh&st=s3kmak01&raw=1') no-repeat center center fixed;
+      background-size: cover;
+      color: #333;
+    }
+
+    header {
+      background-color: #FFD700;
+      color: #556B2F;
+      padding: 20px 0;
+      text-align: center;
+    }
+
+    h1 {
+      margin: 0;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 40px auto;
+      background-color: rgba(255, 255, 255, 0.95);
+      padding: 30px;
+      border-radius: 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+
+    video, img {
+      width: 100%;
+      max-height: 400px;
+      border-radius: 15px;
+      border: 2px solid #ccc;
+      object-fit: cover;
+      margin-bottom: 20px;
+    }
+
+    button {
+      padding: 12px 25px;
+      background: linear-gradient(45deg, #556B2F, #8FBC8F);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: bold;
+      margin: 10px;
+      transition: all 0.3s ease;
+    }
+
+    button:hover {
+      background: linear-gradient(45deg, #6B8E23, #98FB98);
+      transform: scale(1.05);
+    }
+
+    #upload-section {
+      display: none;
+    }
+
+    input[type="file"] {
+      margin-top: 10px;
+    }
+
+    .button-container {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+    }
+  </style>
 </head>
 <body>
 
-    <header>
-        <h1>Skin Condition Analyzer</h1>
-    </header>
+  <header>
+    <h1>Skin Condition Analyzer</h1>
+  </header>
 
-    <div class="container">
-        <h2>Upload Your Skin Image</h2>
-        
-        <!-- File Upload Section -->
-        <form action="/predict" method="POST" enctype="multipart/form-data" class="upload-form">
-            <input type="file" name="file" accept="image/*" required>
-            <button type="submit">Analyze Skin Condition</button>
-        </form>
-        
-        <h2>Or Capture Your Skin Image Using Camera</h2>
-        <button id="open-camera-btn">Open Camera</button>
-        <div id="camera-container">
-            <video id="video" autoplay></video>
-            <br>
-            <button id="capture-btn">Capture Image</button>
-            <canvas id="canvas" style="display: none;"></canvas>
-            <br>
-            <input type="file" id="captured-image" name="file" style="display: none;" />
-            <button id="upload-btn" style="display: none;" onclick="uploadAndRedirect()">Upload & Analyze</button>
-        </div>
+  <div class="container">
+    <p>Capture your skin condition by using the camera or upload an image.</p>
+
+    <!-- Camera feed -->
+    <video id="camera" autoplay></video>
+    <br>
+
+    <!-- Button Container for Capture & Upload -->
+    <div class="button-container">
+      <button onclick="captureImage()">📸 Capture Image</button>
+      <button onclick="toggleUploadSection()">📤 Upload Image</button>
     </div>
 
-    <script>
-        const openCameraBtn = document.getElementById('open-camera-btn');
-        const cameraContainer = document.getElementById('camera-container');
-        const videoElement = document.getElementById('video');
-        const captureBtn = document.getElementById('capture-btn');
-        const canvas = document.getElementById('canvas');
-        const capturedImageInput = document.getElementById('captured-image');
-        const uploadBtn = document.getElementById('upload-btn');
+    <!-- Upload section -->
+    <div id="upload-section">
+      <input type="file" id="upload" accept="image/*">
+      <br><br>
+      <button onclick="uploadImage()">🧪 Analyze Uploaded Image</button>
+    </div>
 
-        openCameraBtn.addEventListener('click', () => {
-            cameraContainer.style.display = 'block';
-            openCamera();
-        });
+    <!-- Captured image preview -->
+    <img id="uploaded-image" src="" alt="Captured Image" />
 
-        async function openCamera() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                videoElement.srcObject = stream;
-            } catch (err) {
-                console.error("Error accessing camera: ", err);
+  </div>
+
+  <script>
+    const camera = document.getElementById('camera');
+    const uploadSection = document.getElementById('upload-section');
+    const uploadedImage = document.getElementById('uploaded-image');
+    let currentImage = null;
+    let uploadedFile = null;
+
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        camera.srcObject = stream;
+      } catch (err) {
+        alert("Camera not accessible.");
+        console.error(err);
+      }
+    }
+
+    function captureImage() {
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      canvas.width = camera.videoWidth;
+      canvas.height = camera.videoHeight;
+      context.drawImage(camera, 0, 0, canvas.width, canvas.height);
+      currentImage = canvas.toDataURL('image/png');
+      uploadedImage.src = currentImage;
+      uploadSection.style.display = 'block';
+    }
+
+    function toggleUploadSection() {
+      uploadSection.style.display = uploadSection.style.display === 'block' ? 'none' : 'block';
+      uploadedImage.src = '';  // Clear previous image if any
+    }
+
+    function uploadImage() {
+      if (uploadedFile) {
+        const formData = new FormData();
+        formData.append('file', uploadedFile);
+
+        fetch('/predict', {
+          method: 'POST',
+          body: formData
+        })
+          .then(response => response.json())
+          .then(data => {
+            if (data.error) {
+              alert(data.error);
+            } else {
+              const query = new URLSearchParams({
+                condition: data.condition,
+                products: JSON.stringify(data.products)
+              });
+              window.location.href = '/result?' + query.toString();
             }
-        }
+          })
+          .catch(err => console.error('Error uploading image:', err));
+      } else if (currentImage) {
+        const formData = new FormData();
+        const blob = dataURItoBlob(currentImage);
+        formData.append('file', blob, 'captured-image.png');
 
-        captureBtn.addEventListener('click', () => {
-            captureImage();
-        });
+        fetch('/predict', {
+          method: 'POST',
+          body: formData
+        })
+          .then(response => response.json())
+          .then(data => {
+            if (data.error) {
+              alert(data.error);
+            } else {
+              const query = new URLSearchParams({
+                condition: data.condition,
+                products: JSON.stringify(data.products)
+              });
+              window.location.href = '/result?' + query.toString();
+            }
+          })
+          .catch(err => console.error('Error uploading image:', err));
+      }
+    }
 
-        function captureImage() {
-            const ctx = canvas.getContext('2d');
-            // Set canvas size to match video size
-            canvas.width = videoElement.videoWidth;
-            canvas.height = videoElement.videoHeight;
-            ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-            const dataUrl = canvas.toDataURL('image/jpeg');
-            
-            // Convert captured image to file input
-            const capturedImage = dataURLtoFile(dataUrl, 'captured-image.jpg');
-            const dataTransfer = new DataTransfer();
-            dataTransfer.items.add(capturedImage);
-            capturedImageInput.files = dataTransfer.files;
+    function handleFileUpload(event) {
+      uploadedFile = event.target.files[0];
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        uploadedImage.src = e.target.result;
+      };
+      reader.readAsDataURL(uploadedFile);
+    }
 
-            // Show upload button
-            uploadBtn.style.display = 'inline-block';
-        }
+    function dataURItoBlob(dataURI) {
+      const byteString = atob(dataURI.split(',')[1]);
+      const arrayBuffer = new ArrayBuffer(byteString.length);
+      const uintArray = new Uint8Array(arrayBuffer);
+      for (let i = 0; i < byteString.length; i++) {
+        uintArray[i] = byteString.charCodeAt(i);
+      }
+      return new Blob([uintArray], { type: 'image/png' });
+    }
 
-        function dataURLtoFile(dataUrl, filename) {
-            const arr = dataUrl.split(','), mime = arr[0].match(/:(.*?);/)[1],
-            bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
-            while(n--) u8arr[n] = bstr.charCodeAt(n);
-            return new File([u8arr], filename, { type: mime });
-        }
+    document.getElementById('upload').addEventListener('change', handleFileUpload);
 
-        // Redirect to result page after upload
-        function uploadAndRedirect() {
-            // Simulate form submission by uploading the captured image
-            const form = new FormData();
-            form.append("file", capturedImageInput.files[0]);
-
-            // Make an AJAX request to submit the form
-            fetch('/predict', {
-                method: 'POST',
-                body: form
-            })
-            .then(response => response.json()) // Assuming the server returns JSON with the results
-            .then(data => {
-                if (data.success) {
-                    // Redirect to result page with the results
-                    window.location.href = '/result'; // Modify this URL based on your result page
-                } else {
-                    alert("Error analyzing image");
-                }
-            })
-            .catch(error => console.error('Error:', error));
-        }
-    </script>
+    window.onload = startCamera;
+  </script>
 
 </body>
 </html>
